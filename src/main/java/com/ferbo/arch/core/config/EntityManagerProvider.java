@@ -4,6 +4,8 @@ import javax.persistence.EntityManager;
 import javax.persistence.EntityManagerFactory;
 import javax.persistence.Persistence;
 
+import com.ferbo.tools.exception.SystemException;
+
 /**
  * Proveedor de EntityManager para la aplicación.
  * Esta clase es independiente del proveedor JPA.
@@ -26,9 +28,9 @@ public class EntityManagerProvider {
      * Obtiene un EntityManager nuevo
      * @return EntityManager
      */
-    public static EntityManager gEntityManager() {
+    public static EntityManager getEntityManager() {
         if (emf == null) {
-            throw new IllegalStateException("EntityManagerFactory no inicializada. LLama a init () primero.");
+            throw new SystemException("EntityManagerFactory no inicializada. Llama a init () primero.");
         }
         return emf.createEntityManager();
     }
