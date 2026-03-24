@@ -1,0 +1,39 @@
+# Build
+/target/
+/build/
+
+# Compiled files
+*.class
+*.jar
+*.war
+*.ear
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDEs
+.idea/
+*.iml
+.project
+.classpath
+.settings/
+.vscode/
+
+# Env & secrets
+.env
+*.key
+*.pem
+*.p12
+*.jks
+
+# Temp
+*.tmp
+*.swp
+
+# Testing
+/reports/
+/coverage/
