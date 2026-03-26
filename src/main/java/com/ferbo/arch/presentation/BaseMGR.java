@@ -3,66 +3,125 @@ package com.ferbo.arch.presentation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.ferbo.arch.application.BaseBL;
-import com.ferbo.tools.domain.Identifiable;
+import com.ferbo.tools.exception.BusinessException;
+import com.ferbo.tools.exception.RuleException;
 import com.ferbo.tools.exception.SystemException;
 import com.ferbo.tools.exception.ToolException;
+import com.ferbo.tools.exception.ValidationException;
+import com.ferbo.tools.functional.ThrowingRunnable;
 import com.ferbo.tools.functional.ThrowingSupplier;
+import com.ferbo.tools.result.MessageLevel;
 import com.ferbo.tools.result.OperationResult;
+import com.ferbo.tools.result.ResultBuilder;
 
 /**
  * BaseMGR: Clase base para la capa de presentación / manager.
  *
  * Responsabilidades:
- * - Orquestar llamadas a la capa de negocio (BL)
- * - Delegar ejecución de operaciones
- * - Servir como punto de entrada para controladores o servicios
+ * - Recibir llamadas desde controladores o servicios
+ * - Ejecutar operaciones de la capa de negocio (BaseUseCase)
+ * - Capturar excepciones y construir OperationResult
+ * - Registrar logs de la operación
  *
- * @param <T> Tipo de entidad
+ * NOTA:
+ * - Ya no depende de <T> genérico; si se necesita, se usa en implementaciones concretas
+ * - BaseUseCase devuelve entidades puras, MGR construye resultados con ResultBuilder
  */
-public abstract class BaseMGR<T extends Identifiable<?>> {
+public abstract class BaseMGR {
 
     protected final Logger log = LoggerFactory.getLogger(getClass());
 
-    protected final BaseBL<T> bl;
-
     /**
-     * Constructor que recibe la lógica de negocio asociada
-     */
-    protected BaseMGR(BaseBL<T> bl) {
-        this.bl = bl;
-    }
-
-    // --------------------------
-    // Métodos helper
-    // --------------------------
-
-    /**
-     * Ejecuta una operación que devuelve resultado
+     * Ejecuta una operación de negocio que devuelve resultado.
+     *
+     * @param operacion  Lógica a ejecutar (normalmente desde BaseUseCase)
+     * @param descripcion Descripción de la operación para logging
+     * @param <R> Tipo de resultado de la operación
+     * @return OperationResult con datos, mensajes y estado
      */
     protected <R> OperationResult<R> ejecutarOperacion(
-            ThrowingSupplier<OperationResult<R>> operacion,
-            String descripcion) throws SystemException, ToolException {
+            ThrowingSupplier<R> operacion,
+            String descripcion) {
 
         try {
             log.info("MGR ejecutando operación '{}'", descripcion);
-            return operacion.get();
+
+            // Ejecuta la operación BL/UseCase
+            R resultado = operacion.get();
+
+            // Construye OperationResult exitoso
+            return ResultBuilder.<R>success()
+                    .data(resultado)
+                    .message(MessageLevel.SUCCESS,
+                             "Éxito",
+                             descripcion + " completada correctamente")
+                    .build();
+
+        } catch (ValidationException ex) {
+            log.warn("Validación fallida en '{}': {}", descripcion, ex.getMessage());
+            return ResultBuilder.<R>failure()
+                    .message(MessageLevel.WARNING,
+                             "Validación",
+                             ex.getMessage())
+                    .build();
+
+        } catch (RuleException ex) {
+            log.warn("Regla de negocio no cumplida en '{}': {}", descripcion, ex.getMessage());
+            return ResultBuilder.<R>failure()
+                    .message(MessageLevel.INFO,
+                             "Regla de negocio",
+                             ex.getMessage())
+                    .build();
+
+        } catch (BusinessException ex) {
+            log.error("Error de negocio en '{}': {}", descripcion, ex.getMessage(), ex);
+            return ResultBuilder.<R>failure()
+                    .message(MessageLevel.ERROR,
+                             "Error de negocio",
+                             ex.getMessage())
+                    .build();
+
+        } catch (SystemException ex) {
+            log.error("Error de sistema en '{}'", descripcion, ex);
+            return ResultBuilder.<R>failure()
+                    .message(MessageLevel.ERROR,
+                             "Error de sistema",
+                             ex.getMessage())
+                    .build();
+
         } catch (ToolException ex) {
-            log.error("Error crítico en MGR '{}'", descripcion, ex);
-            throw ex;
+            log.error("Error crítico de herramienta en '{}'", descripcion, ex);
+            return ResultBuilder.<R>failure()
+                    .message(MessageLevel.ERROR,
+                             "Error de infraestructura",
+                             ex.getMessage())
+                    .build();
+
         } catch (Exception ex) {
-            log.error("Error inesperado en MGR '{}'", descripcion, ex);
-            throw new SystemException("Error inesperado en MGR al " + descripcion, ex);
+            log.error("Error inesperado en '{}'", descripcion, ex);
+            return ResultBuilder.<R>failure()
+                    .message(MessageLevel.ERROR,
+                             "Error inesperado",
+                             ex.getMessage())
+                    .build();
         }
     }
 
     /**
-     * Ejecuta una operación sin retorno (void)
+     * Ejecuta una operación de negocio que no devuelve resultado (void)
+     *
+     * @param operacion Lógica a ejecutar
+     * @param descripcion Descripción de la operación para logging
+     * @return OperationResult<Void> con mensajes y estado
      */
     protected OperationResult<Void> ejecutarOperacionVoid(
-            ThrowingSupplier<OperationResult<Void>> operacion,
-            String descripcion) throws SystemException, ToolException {
+            ThrowingRunnable operacion,
+            String descripcion) {
 
-        return ejecutarOperacion(operacion, descripcion);
+        // Reusa el método genérico
+        return ejecutarOperacion(() -> {
+            operacion.run();
+            return null;
+        }, descripcion);
     }
 }
