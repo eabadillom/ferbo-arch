@@ -24,6 +24,16 @@ package com.ferbo.arch.persistence;
 public interface PersistenceContext {
 
     /**
+     * Busca una entidad por su identificador.
+     *
+     * @param clazz Clase de la entidad
+     * @param id Identificador de la entidad
+     * @param <T> Tipo de la entidad
+     * @return Entidad encontrada o null si no existe
+     */
+    <T> T find(Class<T> clazz, Object id);
+
+    /**
      * Persiste una nueva entidad en el contexto.
      * 
      * @param entity Entidad a persistir

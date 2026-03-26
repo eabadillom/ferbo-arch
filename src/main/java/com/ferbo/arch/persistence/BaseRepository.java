@@ -1,170 +1,123 @@
 package com.ferbo.arch.persistence;
 
-import java.util.List;
-import java.util.Optional;
-
-import javax.persistence.EntityManager;
-import javax.persistence.EntityTransaction;
-import javax.persistence.NoResultException;
-import javax.persistence.NonUniqueResultException;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.ferbo.tools.exception.SystemException;
-import com.ferbo.tools.functional.ThrowingConsumer;
-import com.ferbo.tools.functional.ThrowingFunction;
-
+import com.ferbo.tools.functional.ThrowingSupplier;
 
 /**
- * BaseRepository: Repositorio genérico para cualquier entidad Identifiable<ID>.
- *
- * Responsabilidades:
- * - Ejecutar operaciones sobre EntityManager
- * - Manejar transacciones y excepciones de manera centralizada
- * - Proveer métodos CRUD y de consulta reutilizables
- *
- * @param <T>  Tipo de entidad
- * @param <ID> Tipo de ID
- */
-/**
- * BaseRepository: Repositorio genérico para cualquier entidad Identifiable<ID>.
- *
- * Responsabilidad:
- * - Ejecutar operaciones sobre EntityManager
- * - Manejar transacciones y excepciones de manera centralizada
- * - Proveer métodos CRUD y de consulta reutilizables
- *
- * @param <T>  Tipo de entidad
- * @param <ID> Tipo de ID
+ * BaseRepository: Repositorio genérico para cualquier entidad.
+ * 
+ * Propósito:
+ * - Proveer operaciones básicas de persistencia (CRUD) de forma genérica
+ * - Desacoplar la lógica de acceso a datos del framework de persistencia
+ * - No manejar transacciones (eso lo hace BaseUseCase con TransactionManager)
+ * 
+ * IMPORTANTE:
+ * - Solo interactúa con PersistenceContext
+ * - Debe ser extendido por respositorios especificos de cada módulo
+ * - Permite centralizar consultas genéricas y paginadas
+ * 
+ * @param <T> Tipo de entidad
+ * @param <ID> tipo de identificador de la entidad
  */
 public abstract class BaseRepository<T, ID> {
 
     protected final Logger log = LoggerFactory.getLogger(getClass());
 
-    protected final Class<T> modelClass;
-    protected final ThrowingFunction<Void, EntityManager> entityManagerSupplier;
+    protected final Class<T> entityClass;
+    protected final PersistenceContext persistenceContext;
 
-    protected BaseRepository(Class<T> modelClass, ThrowingFunction<Void, EntityManager> entityManagerSupplier) {
-        this.modelClass = modelClass;
-        this.entityManagerSupplier = entityManagerSupplier;
+    /**
+     * Constructor base. 
+     * 
+     * @param entityClass Clase de la entidad
+     * @param persistenceContext Contexto de persistencia agnóstica
+     */
+    protected BaseRepository(Class<T> entityClass, PersistenceContext persistenceContext) {
+        this.entityClass = entityClass;
+        this.persistenceContext = persistenceContext;
     }
 
-    // --------------------------
-    // CRUD
-    // --------------------------
+    // -------------------------------------------------------------------------
+    // CRUD genérico
+    // -------------------------------------------------------------------------
 
-    public Optional<T> buscarPorId(ID id) {
-        return ejecutarConsulta(em -> Optional.ofNullable(em.find(modelClass, id)));
+    /**
+     * Busca una entidad por su ID. 
+     * 
+     * @param id Identificador de la entidad
+     * @return Entidad encontrada o null
+     */
+    public T buscarPorId(ID id) {
+        return persistenceContext.find(entityClass, id);
     }
 
+    /**
+     * Persiste una nueva entidad. 
+     * 
+     * @param entity Entidad a guardar
+     * @return La misma entidad
+     */
     public T guardar(T entity) {
-        ejecutarTransaccionVoid(em -> em.persist(entity), "guardar");
+        persistenceContext.persist(entity);
+        log.info("Entitdad {} guardada correctamente", entity);
         return entity;
     }
 
+    /**
+     * Actualiza una entidad existente. 
+     * 
+     * @param entity Entidad a actualizar
+     * @return Entidad gestionada actualizada
+     */
     public T actualizar(T entity) {
-        return ejecutarTransaccion(em -> em.merge(entity), entity, "actualizar");
+        T merged = persistenceContext.merge(entity);
+        log.info("Entidad {} actualizada correctamente", entity);
+        return merged;
     }
 
+    /**
+     * Elimina una entidad. 
+     * 
+     * @param entity Entidad a eliminar
+     */
     public void eliminar(T entity) {
-        ejecutarTransaccionVoid(em -> em.remove(em.contains(entity) ? entity : em.merge(entity)), "eliminar");
-    }
-
-    // --------------------------
-    // Transacciones
-    // --------------------------
-
-    protected T ejecutarTransaccion(ThrowingFunction<EntityManager, ?> accion, T entity, String operacion) {
-        EntityManager em = obtenerEntityManager();
-        EntityTransaction tx = em.getTransaction();
-        try {
-            tx.begin();
-            accion.apply(em);
-            tx.commit();
-            log.info("Entidad {} {} correctamente", entity, operacion);
-            return entity;
-        } catch (Exception ex) {
-            if (tx.isActive()) tx.rollback();
-            log.error("Error al {} entidad {}", operacion, entity, ex);
-            throw new SystemException("Error al " + operacion + " la entidad.", ex);
-        } finally {
-            cerrarEntityManager(em);
+        if (!persistenceContext.contains(entity)) {
+            entity = persistenceContext.merge(entity);
         }
+        persistenceContext.remove(entity);
+        log.info("Entidad {} elimina correctamente", entity);
     }
 
-    protected void ejecutarTransaccionVoid(ThrowingConsumer<EntityManager> accion, String operacion) {
-        EntityManager em = obtenerEntityManager();
-        EntityTransaction tx = em.getTransaction();
-        try {
-            tx.begin();
-            accion.accept(em);
-            tx.commit();
-            log.info("Operación '{}' completada correctamente", operacion);
-        } catch (Exception ex) {
-            if (tx.isActive()) tx.rollback();
-            log.error("Error en operación '{}'", operacion, ex);
-            throw new SystemException("Error al " + operacion, ex);
-        } finally {
-            cerrarEntityManager(em);
-        }
+    // -------------------------------------------------------------------------
+    // Consultas y helpers
+    // -------------------------------------------------------------------------
+
+    /**
+     * Verifica si la entidad está en el contexto de persistencia. 
+     * 
+     * @param entity Entidad a verificar
+     * @return true si está en el contexto
+     */
+    protected boolean contiene(T entity) {
+        return persistenceContext.contains(entity);
     }
 
-    // --------------------------
-    // Consultas
-    // --------------------------
-
-    protected <R> R ejecutarConsulta(ThrowingFunction<EntityManager, R> query) {
-        EntityManager em = obtenerEntityManager();
+    /**
+     * Ejecuta una consulta genérica con manejo de excepciones. 
+     * 
+     * @param <R> Tipo de resultado
+     * @param query Lógica de consulta
+     * @return Resultado de la consulta
+     */
+    protected <R> R ejecutarConsulta(ThrowingSupplier<R> query) {
         try {
-            return query.apply(em);
-        } catch (NoResultException ex) {
-            return null;
-        } catch (NonUniqueResultException ex) {
-            log.error("Se esperaba un único resultado en {}", modelClass.getSimpleName(), ex);
-            throw new SystemException("La consulta retornó múltiples resultados.", ex);
+            return query.get();
         } catch (Exception ex) {
-            log.error("Error en consulta en {}", modelClass.getSimpleName(), ex);
+            log.error("Error en consulta de {}", entityClass.getSimpleName(), ex);
             throw new SystemException("Error al ejecutar consulta.", ex);
-        } finally {
-            cerrarEntityManager(em);
-        }
-    }
-
-    protected ResultadoPaginado<T> ejecutarPaginado(
-            ThrowingFunction<EntityManager, List<T>> dataQuery,
-            ThrowingFunction<EntityManager, Long> countQuery,
-            int pagina,
-            int tamanio) {
-
-        EntityManager em = obtenerEntityManager();
-        try {
-            List<T> resultados = dataQuery.apply(em);
-            Long total = countQuery.apply(em);
-            return new ResultadoPaginado<>(resultados, (total != null) ? total : 0L, pagina, tamanio);
-        } catch (Exception ex) {
-            log.error("Error en paginación en {}", modelClass.getSimpleName(), ex);
-            throw new SystemException("Error en paginación.", ex);
-        } finally {
-            cerrarEntityManager(em);
-        }
-    }
-
-    // --------------------------
-    // Helpers
-    // --------------------------
-
-    protected EntityManager obtenerEntityManager() {
-        try {
-            return entityManagerSupplier.apply(null);
-        } catch (Exception ex) {
-            throw new SystemException("No se pudo obtener EntityManager.", ex);
-        }
-    }
-
-    protected void cerrarEntityManager(EntityManager em) {
-        if (em != null && em.isOpen()) {
-            em.close();
         }
     }
 }
