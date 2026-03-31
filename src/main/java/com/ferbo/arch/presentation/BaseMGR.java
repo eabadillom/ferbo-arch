@@ -118,7 +118,7 @@ public abstract class BaseMGR {
             ThrowingRunnable operacion,
             String descripcion) {
 
-        // Reusa el método genérico
+        // Reusa el método genérico, retornando null
         return ejecutarOperacion(() -> {
             operacion.run();
             return null;
