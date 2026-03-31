@@ -1,39 +1,52 @@
 package com.ferbo.arch.persistence;
 
+import java.util.Optional;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.ferbo.tools.exception.SystemException;
-import com.ferbo.tools.functional.ThrowingSupplier;
 
 /**
  * BaseRepository: Repositorio genérico para cualquier entidad.
  * 
- * Propósito:
+ * PROPÓSITO:
  * - Proveer operaciones básicas de persistencia (CRUD) de forma genérica
  * - Desacoplar la lógica de acceso a datos del framework de persistencia
- * - No manejar transacciones (eso lo hace BaseUseCase con TransactionManager)
+ * - Mantener independencia de la capa de negocio
  * 
- * IMPORTANTE:
- * - Solo interactúa con PersistenceContext
- * - Debe ser extendido por respositorios especificos de cada módulo
- * - Permite centralizar consultas genéricas y paginadas
+ * RESPONSABILIDADES: 
+ * - Delegar todas las operaciones de persistencia a PersistenceContext
+ * - No manejar transacciones (eso lo hace BaseUseCase con TransactionManager)
+ * - Facilitar consultas y operaciones comunes
+ * 
+ * Notas: 
+ * - Debe ser extendido por repositorios especificos de cada módulo
+ * - Permite centralizar lógica genérica para todos los repositorios
+ * 
+ * REGLA:
+ * Este repositorio provee únicamente operaciones básicas.
+ *
+ * Los repositorios específicos deben exponer métodos orientados a negocio:
+ * - buscarUsuariosActivos()
+ * - obtenerPedidosPendientes()
+ *
+ * Evitar exponer únicamente operaciones CRUD genéricas en capas superiores.
  * 
  * @param <T> Tipo de entidad
- * @param <ID> tipo de identificador de la entidad
  */
 public abstract class BaseRepository<T, ID> {
 
-    protected final Logger log = LoggerFactory.getLogger(getClass());
+     protected final Logger log = LoggerFactory.getLogger(getClass());
 
     protected final Class<T> entityClass;
     protected final PersistenceContext persistenceContext;
 
     /**
-     * Constructor base. 
+     * Constructor base.
      * 
-     * @param entityClass Clase de la entidad
-     * @param persistenceContext Contexto de persistencia agnóstica
+     * @param entityClass clase de la entidad 
+     * @param pesistenceContext Contexto de persistencia agnóstico
      */
     protected BaseRepository(Class<T> entityClass, PersistenceContext persistenceContext) {
         this.entityClass = entityClass;
@@ -41,83 +54,51 @@ public abstract class BaseRepository<T, ID> {
     }
 
     // -------------------------------------------------------------------------
-    // CRUD genérico
+    // Operaciones de consulta
     // -------------------------------------------------------------------------
 
     /**
-     * Busca una entidad por su ID. 
+     * Busca una entidad por su ID.
      * 
      * @param id Identificador de la entidad
-     * @return Entidad encontrada o null
+     * @return Optional con la entidad encontrada, o vacío si no existe
      */
-    public T buscarPorId(ID id) {
-        return persistenceContext.find(entityClass, id);
+    public Optional<T> buscarPorId(ID id) {
+        return Optional.ofNullable(persistenceContext.find(entityClass, id));
     }
 
+    // -------------------------------------------------------------------------
+    // Operaciones de escritura
+    // -------------------------------------------------------------------------
+
+
     /**
-     * Persiste una nueva entidad. 
+     * Persiste o actualiza una entidad.
      * 
-     * @param entity Entidad a guardar
-     * @return La misma entidad
+     * @param entity Entidad a guardar o actualizar
+     * @return Entidad gestionada
      */
-    public T guardar(T entity) {
-        persistenceContext.persist(entity);
-        log.info("Entitdad {} guardada correctamente", entity);
-        return entity;
+     public T save(T entity) {
+        try {
+            return persistenceContext.save(entity);
+
+        } catch (Exception ex) {
+            log.error("Error guardando entidad {}", entityClass.getSimpleName(), ex);
+            throw new SystemException("Error al guardar entidad", ex);
+        }
     }
 
     /**
-     * Actualiza una entidad existente. 
-     * 
-     * @param entity Entidad a actualizar
-     * @return Entidad gestionada actualizada
-     */
-    public T actualizar(T entity) {
-        T merged = persistenceContext.merge(entity);
-        log.info("Entidad {} actualizada correctamente", entity);
-        return merged;
-    }
-
-    /**
-     * Elimina una entidad. 
+     * Elimina una entidad.
      * 
      * @param entity Entidad a eliminar
      */
-    public void eliminar(T entity) {
-        if (!persistenceContext.contains(entity)) {
-            entity = persistenceContext.merge(entity);
-        }
-        persistenceContext.remove(entity);
-        log.info("Entidad {} elimina correctamente", entity);
-    }
-
-    // -------------------------------------------------------------------------
-    // Consultas y helpers
-    // -------------------------------------------------------------------------
-
-    /**
-     * Verifica si la entidad está en el contexto de persistencia. 
-     * 
-     * @param entity Entidad a verificar
-     * @return true si está en el contexto
-     */
-    protected boolean contiene(T entity) {
-        return persistenceContext.contains(entity);
-    }
-
-    /**
-     * Ejecuta una consulta genérica con manejo de excepciones. 
-     * 
-     * @param <R> Tipo de resultado
-     * @param query Lógica de consulta
-     * @return Resultado de la consulta
-     */
-    protected <R> R ejecutarConsulta(ThrowingSupplier<R> query) {
+     public void delete(T entity) {
         try {
-            return query.get();
+            persistenceContext.delete(entity);
         } catch (Exception ex) {
-            log.error("Error en consulta de {}", entityClass.getSimpleName(), ex);
-            throw new SystemException("Error al ejecutar consulta.", ex);
+            log.error("Error eliminando entidad {}", entityClass.getSimpleName(), ex);
+            throw new SystemException("Error al eliminar entidad", ex);
         }
     }
 }

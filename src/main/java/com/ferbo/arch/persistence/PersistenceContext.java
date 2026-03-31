@@ -1,7 +1,5 @@
 package com.ferbo.arch.persistence;
 
-import java.util.Optional;
-
 /**
  * PersistenceContext: Abstracción del contexto de persistencia.
  *
@@ -34,7 +32,7 @@ public interface PersistenceContext {
      * @param <T> Tipo de la entidad
      * @return Optional con la entidad encontrada, o vacío si no existe
      */
-    <T> Optional<T> find(Class<T> clazz, Object id);
+    <T, ID> T find(Class<T> clazz, Object id);
 
     /**
      * Persiste una nueva entidad o actualiza una existente en el contexto.
