@@ -1,24 +1,27 @@
 package com.ferbo.arch.persistence;
 
+import java.util.Optional;
+
 /**
  * PersistenceContext: Abstracción del contexto de persistencia.
- * 
- * Proposito: 
- * - Desacoplar la lógica de negocio del framework de persistencia (JPA, Hibernate, etc.)
+ *
+ * PROPÓSITO:
+ * - Desacoplar la lógica de negocio de cualquier framework de persistencia (JPA, JDBC, Hibernate, etc.)
  * - Proveer operaciones básicas de acceso a datos de forma agnóstica
- * 
- * Este contrato permite que el sistema:
- * - Cambie de tecnología de persistencia sin afectar el dominio
- * - Sea fácilmente testeable (mockeable)
- * 
- * IMPORTANTE: 
- * - No debe contener lógica de negocio
- * - No debe manejar transacciones
- * - No debe exponer clases especificas como EntityManager
- * 
- * Implementaciones típicas:
- * - JPAPersistenceContext
- * - JdbcPersistenceContet (futuro)
+ * - Facilitar testing, permitiendo mocks y reemplazos de implementación
+ *
+ * RESPONSABILIDADES:
+ * - Buscar, guardar, actualizar y eliminar entidades
+ * - Verificar si una entidad está siendo gestionada
+ *
+ * NO SE ENCARGA DE:
+ * - Lógica de negocio
+ * - Manejo de transacciones
+ * - Exponer frameworks específicos (EntityManager, Session, etc.)
+ *
+ * IMPLEMENTACIONES TÍPICAS:
+ * - JPAPersistenceContext (con JPA)
+ * - JdbcPersistenceContext (con JDBC puro, futuro)
  * - MockPersistenceContext (testing)
  */
 public interface PersistenceContext {
@@ -29,38 +32,33 @@ public interface PersistenceContext {
      * @param clazz Clase de la entidad
      * @param id Identificador de la entidad
      * @param <T> Tipo de la entidad
-     * @return Entidad encontrada o null si no existe
+     * @return Optional con la entidad encontrada, o vacío si no existe
      */
-    <T> T find(Class<T> clazz, Object id);
+    <T> Optional<T> find(Class<T> clazz, Object id);
 
     /**
-     * Persiste una nueva entidad en el contexto.
-     * 
-     * @param entity Entidad a persistir
-     */
-    void persist(Object Entity);
-
-    /**
-     * Actualuiza el estado de una entidad en el contexto.
-     * 
-     * @param entity Entidad a actualizar
+     * Persiste una nueva entidad o actualiza una existente en el contexto.
+     *
+     * @param entity Entidad a guardar o actualizar
      * @param <T> Tipo de la entidad
-     * @return Entidad gestionada actualizada
+     * @return La entidad gestionada después de la operación
      */
-    <T> T merge(T entity);
+    <T> T save(T entity);
 
     /**
      * Elimina una entidad del contexto.
-     * 
+     *
      * @param entity Entidad a eliminar
+     * @param <T> Tipo de la entidad
      */
-    void remove(Object entity);
+    <T> void delete(T entity);
 
     /**
-     * Verifica si una entidad está siendo gestionada por contexto actual.
-     * 
+     * Verifica si una entidad está siendo gestionada por el contexto actual.
+     *
      * @param entity Entidad a verificar
+     * @param <T> Tipo de la entidad
      * @return true si está en el contexto, false en caso contrario
      */
-    boolean contains(Object entity);
+    <T> boolean contains(T entity);
 }
