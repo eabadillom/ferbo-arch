@@ -114,4 +114,8 @@ public class Cliente {
                 ", activo=" + activo +
                 '}';
     }
+
+    public void setId(Long id){
+        this.id = id;
+    }
 }

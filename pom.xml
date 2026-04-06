@@ -48,14 +48,6 @@
             <scope>test</scope>
         </dependency>
 
-        <!-- (Opcional) Para ejecutar tests antiguos de JUnit 4 dentro de JUnit 5 -->
-        <dependency>
-            <groupId>org.junit.vintage</groupId>
-            <artifactId>junit-vintage-engine</artifactId>
-            <version>${junit.jupiter.version}</version>
-            <scope>test</scope>
-        </dependency>
-
         <!-- JPA (para EntityManager) -->
         <dependency>
             <groupId>javax.persistence</groupId>
