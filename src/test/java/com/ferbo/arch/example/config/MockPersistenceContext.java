@@ -3,6 +3,7 @@ package com.ferbo.arch.example.config;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 
 import com.ferbo.arch.example.cliente.domain.Cliente;
 import com.ferbo.arch.persistence.PersistenceContext;
@@ -16,11 +17,12 @@ public final class MockPersistenceContext implements PersistenceContext {
     private long idSequence = 1;
 
     @Override
-    public <T, ID> T find(Class<T> clazz, Object id) {
+    public <T, ID> Optional<T> find(Class<T> clazz, Object id) {
         if (clazz.equals(Cliente.class)) {
-            return clazz.cast(db.get((Long) id));
+            return Optional.ofNullable(
+                    clazz.cast(db.get((Long) id)));
         }
-        return null;
+        return Optional.empty();
     }
 
     @Override
