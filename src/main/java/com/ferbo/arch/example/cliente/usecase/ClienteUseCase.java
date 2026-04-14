@@ -2,10 +2,9 @@ package com.ferbo.arch.example.cliente.usecase;
 
 import java.util.List;
 
-import com.ferbo.arch.core.usecase.BaseUseCase;
+import com.ferbo.arch.core.usecase.UseCaseExecutor;
 import com.ferbo.arch.example.cliente.domain.Cliente;
 import com.ferbo.arch.example.cliente.respository.ClienteRepository;
-import com.ferbo.arch.persistence.TransactionManager;
 import com.ferbo.tools.exception.BusinessException;
 import com.ferbo.tools.exception.ValidationException;
 
@@ -22,9 +21,10 @@ import com.ferbo.tools.exception.ValidationException;
  * - No construye DTOs
  * - Usa entidades de dominio
  */
-public class ClienteUseCase extends BaseUseCase<Cliente> {
+public class ClienteUseCase{
 
     private final ClienteRepository clienteRepository;
+    private final UseCaseExecutor executor;
 
     /**
      * Constructor
@@ -32,10 +32,9 @@ public class ClienteUseCase extends BaseUseCase<Cliente> {
      * @param transactionManager gestor de transacciones
      * @param clienteRepository repositorio de cliente
      */
-    public ClienteUseCase(TransactionManager transactionManager,
-                          ClienteRepository clienteRepository) {
-        super(transactionManager);
+    public ClienteUseCase(ClienteRepository clienteRepository, UseCaseExecutor executor) {
         this.clienteRepository = clienteRepository;
+        this.executor = executor;
     }
 
     // -------------------------------------------------------------------------
@@ -55,7 +54,7 @@ public class ClienteUseCase extends BaseUseCase<Cliente> {
      */
     public Cliente crearCliente(Cliente cliente) {
 
-        return ejecutarTx(() -> {
+        return executor.executeTx(() -> {
 
             // 1. Validación básica
             if (cliente == null) {
@@ -79,7 +78,7 @@ public class ClienteUseCase extends BaseUseCase<Cliente> {
      */
     public List<Cliente> obtenerClientesActivos() {
 
-        return ejecutar(() ->
+        return executor.execute(() ->
                 clienteRepository.buscarClientesActivos()
         );
     }
@@ -92,7 +91,7 @@ public class ClienteUseCase extends BaseUseCase<Cliente> {
      */
     public Cliente buscarClientePorNombre(String nombre) {
 
-        return ejecutar(() -> {
+        return executor.execute(() -> {
 
             if (nombre == null || nombre.trim().isEmpty()) {
                 throw new ValidationException("El nombre es obligatorio");

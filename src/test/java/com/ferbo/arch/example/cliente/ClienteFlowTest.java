@@ -9,6 +9,7 @@ import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import com.ferbo.arch.core.usecase.UseCaseExecutor;
 import com.ferbo.arch.example.cliente.dto.ClienteDTO;
 import com.ferbo.arch.example.cliente.mapper.ClienteMapper;
 import com.ferbo.arch.example.cliente.mgr.ClienteMGR;
@@ -22,6 +23,7 @@ public class ClienteFlowTest {
 
     private ClienteMGR clienteMGR;
     private ClienteUseCase clienteUseCase;
+    private UseCaseExecutor executor;
     private ClienteRepository clienteRepository;
     private ClienteMapper clienteMapper;
 
@@ -36,10 +38,11 @@ public class ClienteFlowTest {
 
         // Crear repository y mapper
         clienteRepository = new ClienteRepository(persistenceContext);
+        executor = new UseCaseExecutor(transactionManager);
         clienteMapper = new ClienteMapper();
 
         // Crear use case
-        clienteUseCase = new ClienteUseCase(transactionManager, clienteRepository);
+        clienteUseCase = new ClienteUseCase(clienteRepository, executor);
 
         // Crear MGR
         clienteMGR = new ClienteMGR(clienteUseCase, clienteMapper);
