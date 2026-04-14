@@ -13,69 +13,60 @@ import com.ferbo.tools.functional.ThrowingRunnable;
 import com.ferbo.tools.functional.ThrowingSupplier;
 
 /**
- * BaseUseCase: Clase base para la ejecución de casos de uso.
+ * UseCaseExecutor
  *
- * Propósito:
- * - Centralizar la ejecución de lógica de negocio
- * - Manejar de forma uniforme las excepciones
- * - Integrar el manejo de transacciones mediante TransactionManager
+ * RESPONSABILIDAD:
+ * - Ejecutar lógica de casos de uso de forma controlada
+ * - Manejar transacciones de forma opcional
+ * - Centralizar manejo de excepciones
  *
- * Responsabilidades:
- * - Ejecutar lógica de negocio (casos de uso)
- * - Manejar logging consistente
- * - Controlar ejecución transaccional cuando sea necesario
- *
- * NO se encarga de:
- * - Acceso directo a datos (eso es responsabilidad de los repositories)
- * - Construcción de respuestas para UI (DTOs, responses, etc.)
- * - Manejo de frameworks (JSF, REST, etc.)
- *
- * IMPORTANTE:
- * - Las transacciones se definen aquí, no en los repositories
- * - Permite agrupar múltiples operaciones en una sola transacción
+ * NOTA IMPORTANTE:
+ * - Esta clase NO es base obligatoria
+ * - Se usa por composición, no por herencia
+ * - Los UseCases NO deben extender esta clase
  */
-public abstract class BaseUseCase<T> {
+public class UseCaseExecutor {
 
-    protected final Logger log = LoggerFactory.getLogger(getClass());
+    private final Logger log = LoggerFactory.getLogger(getClass());
 
-    protected final TransactionManager transactionManager;
+    private final TransactionManager transactionManager;
 
     /**
      * Constructor base.
      *
      * @param transactionManager Gestor de transacciones
      */
-    protected BaseUseCase(TransactionManager transactionManager) {
+    public UseCaseExecutor(TransactionManager transactionManager) {
         this.transactionManager = transactionManager;
     }
 
-    // -------------------------------------------------------------------------
-    // Ejecución SIN transacción
-    // -------------------------------------------------------------------------
+    // -----------------------------------------------------
+    // EJECUCIÓN SIN TRANSACCIÓN
+    // -----------------------------------------------------
 
     /**
-     * Ejecuta una acción de negocio sin contexto transaccional.
+     * Puede ejecutar una acción de negocio sin contexto transaccional.
      *
      * Usar cuando:
      * - Solo se realizan consultas
      * - No hay modificaciones en base de datos
      *
-     * @param accion Lógica a ejecutar
+     * @param action Lógica a ejecutar
      * @param <R>    Tipo de retorno
      * @return Resultado de la ejecución
      */
-    protected <R> R ejecutar(ThrowingSupplier<R> accion)
+    public <R> R execute(ThrowingSupplier<R> action)
             throws ValidationException, RuleException, BusinessException, SystemException, ToolException {
 
-        return ejecutarInterno(accion);
+        return executeInternal(action);
     }
 
-    // -------------------------------------------------------------------------
-    // Ejecución CON transacción
-    // -------------------------------------------------------------------------
+    // -----------------------------------------------------
+    // EJECUCIÓN CON TRANSACCIÓN
+    // -----------------------------------------------------
 
-    /**
-     * Ejecuta una acción de negocio dentro de una transacción.
+     /**
+     * Puede ejecutar una acción de negocio dentro de una transacción.
      *
      * Usar cuando:
      * - Se realizan operaciones de escritura (insert/update/delete)
@@ -85,21 +76,22 @@ public abstract class BaseUseCase<T> {
      * @param <R>    Tipo de retorno
      * @return Resultado de la ejecución
      */
-    protected <R> R ejecutarTx(ThrowingSupplier<R> accion)
+   
+    public <R> R executeTx(ThrowingSupplier<R> action)
             throws ValidationException, RuleException, BusinessException, SystemException, ToolException {
 
-        return transactionManager.execute(() -> ejecutarInterno(accion));
+        return transactionManager.execute(() -> executeInternal(action));
     }
 
     /**
-     * Ejecuta una acción de negocio dentro de una transacción sin retorno.
+     * Puede ejecutar una acción de negocio dentro de una transacción sin retorno.
      *
-     * @param accion Lógica a ejecutar
+     * @param action Lógica a ejecutar
      */
-    protected void ejecutarTxVoid(ThrowingRunnable accion)
+    public void executeTxVoid(ThrowingRunnable action)
             throws ValidationException, RuleException, BusinessException, SystemException, ToolException {
 
-        transactionManager.executeVoid(() -> ejecutarInternoVoid(accion));
+        transactionManager.executeVoid(() -> executeInternalVoid(action));
     }
 
     // -------------------------------------------------------------------------
@@ -113,11 +105,11 @@ public abstract class BaseUseCase<T> {
      * @param <R>    Tipo de retorno
      * @return Resultado de la ejecución
      */
-    private <R> R ejecutarInterno(ThrowingSupplier<R> accion)
+    private <R> R executeInternal (ThrowingSupplier<R> action)
             throws ValidationException, RuleException, BusinessException, SystemException, ToolException {
 
         try {
-            return accion.get();
+            return action.get();
 
         } catch (ValidationException ex) {
             log.warn("[{}] Validación fallida: {}", getClass().getSimpleName(), ex.getMessage(), ex);
@@ -150,11 +142,11 @@ public abstract class BaseUseCase<T> {
      *
      * @param accion Lógica a ejecutar
      */
-    private void ejecutarInternoVoid(ThrowingRunnable accion)
+    private void executeInternalVoid(ThrowingRunnable action)
             throws ValidationException, RuleException, BusinessException, SystemException, ToolException {
 
-        ejecutarInterno(() -> {
-            accion.run();
+        executeInternal(() -> {
+            action.run();
             return null;
         });
     }
