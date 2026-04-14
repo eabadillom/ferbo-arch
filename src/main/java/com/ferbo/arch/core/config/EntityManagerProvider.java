@@ -16,6 +16,9 @@ public class EntityManagerProvider {
     // Fábrica de EntityManagers, única en la aplicación
     private static EntityManagerFactory emf;
 
+    // 🔥 CLAVE: contexto por hilo
+    private static final ThreadLocal<EntityManager> context = new ThreadLocal<>();
+
     /**
      * Inicializa la fábrica de EntityManagers con la unidad de persistencia
      * indicada.
@@ -42,9 +45,29 @@ public class EntityManagerProvider {
      */
     public static EntityManager getEntityManager() {
         if (emf == null) {
-            throw new SystemException("EntityManagerFactory no inicializada. Llama a init() primero.");
+            throw new SystemException("EntityManagerFactory no inicializada.");
         }
-        return emf.createEntityManager();
+
+        EntityManager em = context.get();
+
+        if (em == null || !em.isOpen()) {
+            em = emf.createEntityManager();
+            context.set(em);
+        }
+
+        return em;
+    }
+
+    // 🔥 NUEVO: limpieza por transacción
+    public static void clear() {
+        EntityManager em = context.get();
+
+        if (em != null) {
+            if (em.isOpen()) {
+                em.close();
+            }
+            context.remove();
+        }
     }
 
     /**
@@ -56,7 +79,6 @@ public class EntityManagerProvider {
         }
     }
 
-    // Evita instanciación
     private EntityManagerProvider() {
     }
 }
