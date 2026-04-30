@@ -1,9 +1,9 @@
-package com.ferbo.arch.persistence;
+package com.ferbo.arch.core.config;
 
 import java.util.Optional;
 
 /**
- * PersistenceContext: Abstracción del contexto de persistencia.
+ * Respository: Abstracción del contexto de persistencia.
  *
  * PROPÓSITO:
  * - Desacoplar la lógica de negocio de cualquier framework de persistencia (JPA, JDBC, Hibernate, etc.)
@@ -20,11 +20,11 @@ import java.util.Optional;
  * - Exponer frameworks específicos (EntityManager, Session, etc.)
  *
  * IMPLEMENTACIONES TÍPICAS:
- * - JPAPersistenceContext (con JPA)
- * - JdbcPersistenceContext (con JDBC puro, futuro)
- * - MockPersistenceContext (testing)
+ * - JPARespository (con JPA)
+ * - JdbcRespository (con JDBC puro, futuro)
+ * - MockRespository (testing)
  */
-public interface PersistenceContext {
+public interface DAO <T, ID> {
 
     /**
      * Busca una entidad por su identificador.
@@ -34,7 +34,7 @@ public interface PersistenceContext {
      * @param <T> Tipo de la entidad
      * @return Optional con la entidad encontrada, o vacío si no existe
      */
-    <T, ID> Optional<T> find(Class<T> clazz, Object id);
+    Optional<T> find(ID id);
 
     /**
      * Persiste una nueva entidad o actualiza una existente en el contexto.
@@ -43,7 +43,7 @@ public interface PersistenceContext {
      * @param <T> Tipo de la entidad
      * @return La entidad gestionada después de la operación
      */
-    <T> T save(T entity);
+    T save(T entity);
 
     /**
      * Elimina una entidad del contexto.
@@ -51,7 +51,7 @@ public interface PersistenceContext {
      * @param entity Entidad a eliminar
      * @param <T> Tipo de la entidad
      */
-    <T> void delete(T entity);
+    void delete(T entity);
 
     /**
      * Verifica si una entidad está siendo gestionada por el contexto actual.
@@ -60,5 +60,5 @@ public interface PersistenceContext {
      * @param <T> Tipo de la entidad
      * @return true si está en el contexto, false en caso contrario
      */
-    <T> boolean contains(T entity);
+    boolean contains(T entity);
 }
